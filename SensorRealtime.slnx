@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/솔루션 항목/">
+    <File Path=".env" />
+    <File Path="AGENTS.md" />
+    <File Path="broker-entrypoint.sh" />
+    <File Path="docker-compose.yml" />
+  </Folder>
+  <Project Path="SensorApi/SensorApi.csproj" />
+  <Project Path="SensorProcessor/SensorProcessor.csproj" Id="72a17e29-377d-4df6-81d9-04657f3f0650" />
+  <Project Path="SensorPublisher/SensorPublisher.csproj" />
+</Solution>

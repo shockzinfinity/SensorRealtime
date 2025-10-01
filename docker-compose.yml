@@ -1,0 +1,125 @@
+name: confluent-local
+
+services:
+  broker:
+    image: confluentinc/cp-kafka:7.9.1
+    container_name: broker
+    ports:
+      - "9092:9092" # 내부 통신
+      - "19092:19092" # 호스트 접근
+    environment:
+      # KRaft 단일 노드 (브로커 + 컨트롤러)
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: 1
+
+      # 리스너 정의 (컨트롤러용 리스너 포함)
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:19092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:19092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+
+      # 컨트롤러 리스너 이름 지정 (listeners 에 선언된 이름과 일치해야 함)
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+
+      # 컨트롤러 쿼럼
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker:9093"
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+      # 기타 기본값
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+
+      # KRaft 클러스터 ID 고정
+      CLUSTER_ID: "${CLUSTER_ID}"
+      KAFKA_CLUSTER_ID: "${CLUSTER_ID}"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+      - ./broker-entrypoint.sh:/usr/local/bin/broker-entrypoint.sh:ro
+    entrypoint: ["bash", "/usr/local/bin/broker-entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.9.1
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "8082:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker:9092"
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:7.9.1
+    container_name: control-center
+    depends_on:
+      - broker
+      - schema-registry
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: "broker:9092"
+      CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONTROL_CENTER_REST_LISTENERS: "http://0.0.0.0:9021"
+      CONFLUENT_METRICS_ENABLE: "false"
+
+      # 단일 브로커용 필수/권장 설정
+      CONTROL_CENTER_REPLICATION_FACTOR: "1"
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: "1"
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: "1"
+      CONTROL_CENTER_STREAMS_NUM_STREAM_THREADS: "1"
+
+  sensorapi:
+    build:
+      context: ./SensorApi
+      dockerfile: Dockerfile
+    container_name: sensorapi
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+
+      # Kafka 는 같은 네트워크 내 브로커 주소
+      - Kafka__BootstrapServers=broker:9092
+      - Kafka__TopicRaw=sensor.raw
+      - Kafka__TopicView=sensor.view
+      - Kafka__TopicAlarm=sensor.alarm
+
+      # MQTT 는 호스트 머신 주소
+      - Mqtt__Host=host.docker.internal
+      - Mqtt__Port=1883
+      - Mqtt__Topic=sensor/+/reading
+      - Processor__Threshold=80
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  sensorprocessor:
+    build:
+      context: ./SensorProcessor
+      dockerfile: Dockerfile
+    container_name: sensorprocessor
+    environment:
+      # Kafka 는 같은 네트워크 내 브로커 주소
+      - Kafka__BootstrapServers=broker:9092
+      - Kafka__GroupId=sensor-processor
+      - Kafka__InputTopic=sensor.raw
+      - Kafka__TopicView=sensor.view
+      - Kafka__TopicAlarm=sensor.alarm
+      - Processor__Threshold=80
+    depends_on:
+      broker:
+        condition: service_healthy
+
+volumes:
+  kafka-data:
