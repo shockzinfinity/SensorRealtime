@@ -1,0 +1,42 @@
+# 작업 목록 – Sensor Monitoring MVP
+(기준 문서: `prompts/ProductRequirementsDocument.md` v0.4)
+
+## Phase 1 – MVP 기초 정비 (1~3주)
+- [ ] **도메인/레이어 정리**: 각 서비스에 Domain/Application/Infrastructure 프로젝트를 분리하고 공유 DTO를 단일 도메인 어셈블리로 이동 (`SensorApi`, `SensorProcessor`).
+- [ ] **Kafka/MQTT 설정 표준화**: `appsettings.*`와 `.env` 키를 PRD 스펙대로 재구성하고 중복 옵션 정리 (`SensorApi/Options.cs`, `SensorProcessor/Options.cs`).
+- [ ] **MQTT 인입 개선**: `MqttIngestWorker`에 페일오버, QoS 처리, 구성 검증 추가 후 단위 테스트 작성 (`SensorApi/Services/MqttIngestWorker.cs`).
+- [ ] **Processor 로직 완성**: `ProcessorWorker`에서 임계치 비교, severity 계산, `sensor.view`/`sensor.alarm` 생산 로직과 재처리 전략 구현 (`SensorProcessor/ProcessorWorker.cs`).
+- [ ] **Kafka Producer/Consumer 추상화**: 인터페이스 정의 및 Retry/Backoff 적용, 테스트 더블 제공 (`SensorApi/Producers`, `SensorProcessor`).
+- [ ] **SSE 알람 엔드포인트**: `/stream/alarm` 구현 및 Keep-Alive/재시도 헤더 설정 (`SensorApi/Program.cs` 혹은 새로운 Controller).
+- [ ] **센서 뷰 API**: `/api/sensors/view` 조회용 Application 서비스 및 캐시/스토어 설계 (`SensorApi`).
+- [ ] **헬스/메트릭 확장**: `/health` 강화와 기본 메트릭 추상화 설계 (`SensorApi`).
+- [ ] **UI/UX 목업 준비**: 대시보드 & 임계치 관리 Figma 목업 제작, 데스크톱/모바일 각각 1차안 정의 (디자인 팀 협업).
+
+## Phase 2 – 대시보드 및 프론트엔드 구축 (병행)
+- [ ] **Vue 3 + Vite 프로젝트 초기화**: `dashboard/` 디렉터리 생성, ESLint/Prettier 설정, 기본 라우팅 구성.
+- [ ] **RxJS 기반 데이터 계층**: SSE 구독 래퍼와 View API 클라이언트 작성.
+- [ ] **핵심 위젯 구현**: 알람 리스트, 실시간 차트, 라인별 요약, 장비 위치 지도, 유지보수 작업 큐 컴포넌트 작성.
+- [ ] **반응형 레이아웃**: 데스크톱 전체 위젯 + 모바일 축약 뷰(알람/요약 중심) 설계 및 스타일링.
+- [ ] **임계치 관리 UI**: 사용자별 임계치 CRUD 화면과 변경 이력 확인 기능 구현 (API 준비 후 연동).
+- [ ] **상태 관리**: Pinia 또는 Composition API로 전역 상태 정의, CQRS 기반 커맨드/쿼리 분리.
+
+## Phase 3 – 테스트 및 품질 확보
+- [ ] **Playwright E2E 구성**: `dashboard/tests/e2e` 디렉터리에서 기본 시나리오(알람 수신, 임계치 조정, 모바일 뷰) 자동화.
+- [ ] **통합 테스트**: Kafka/MQTT 테스트 컨테이너 활용한 ingest→processor 파이프라인 검증 (`tests/Integration`).
+- [ ] **단위 테스트 확장**: Domain/Application 계층별 단위 테스트 추가 (.NET xUnit 프로젝트 생성).
+- [ ] **CI 스크립트 준비(미도입)**: 로컬 전용이지만 GitHub Actions 대비 빌드/테스트 스크립트 초안 작성.
+
+## Phase 4 – 관측성 및 운영 준비
+- [ ] **구조화 로그**: Serilog 등 도입으로 알람·임계치 이벤트 로깅 포맷 통일.
+- [ ] **SLA 계측 로깅**: 알람 발생/확인/조치 타임스탬프 저장 및 보고용 데이터 스키마 정의.
+- [ ] **Prometheus 훅 설계**: 지표 추상화와 Exporter 모듈 설계, Phase 2 이후 구현 대비.
+- [ ] **Docker Compose 확장**: EMQX 포함 서비스 정의, 프론트엔드 Nginx/Node 서비스 추가, 환경 변수 정리 (`docker-compose.yml`).
+
+## Phase 5 – 후속 연구 및 결정 항목
+- [ ] **SSE vs WebSocket/SignalR 비교 리포트**: 동시 사용자/지연 벤치마크 계획 수립.
+- [ ] **UI/UX 디자인 시스템 선정**: 컴포넌트 라이브러리(예: Vuetify, Naive UI 등) 평가 및 도입 일정 확정.
+- [ ] **Slack/Webhook 알람 연동 설계**: Processor → 외부 알림 파이프라인 초안 작성.
+- [ ] **장기 저장 전략**: Kafka Connect + Time-Series/데이터 레이크 후보 비교.
+- [ ] **보안 로드맵**: MQTT TLS, Kafka ACL, API 인증/권한 도입 순서 정리.
+
+> ※ 각 태스크는 PRD 범위에 따라 우선순위가 달라질 수 있으며, Phase 1 완료 후 재평가한다.

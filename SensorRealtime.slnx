@@ -1,9 +1,15 @@
 <Solution>
+  <Folder Name="/prompts/">
+    <File Path="prompts/ProductRequirementsDocument.md" />
+    <File Path="prompts/Tasks.md" />
+  </Folder>
   <Folder Name="/솔루션 항목/">
     <File Path=".env" />
     <File Path="AGENTS.md" />
     <File Path="broker-entrypoint.sh" />
     <File Path="docker-compose.yml" />
+    <File Path="PRD_Sensor_Monitoring.md" />
+    <File Path="README.md" />
   </Folder>
   <Project Path="SensorApi/SensorApi.csproj" />
   <Project Path="SensorProcessor/SensorProcessor.csproj" Id="72a17e29-377d-4df6-81d9-04657f3f0650" />
